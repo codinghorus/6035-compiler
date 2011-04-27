@@ -10,6 +10,8 @@ import edu.mit.compilers.le02.ast.CallNode;
 import edu.mit.compilers.le02.ast.ExpressionNode;
 import edu.mit.compilers.le02.ast.MathOpNode;
 import edu.mit.compilers.le02.ast.MathOpNode.MathOp;
+import edu.mit.compilers.le02.ast.MethodCallNode;
+import edu.mit.compilers.le02.ast.SystemCallNode;
 
 public class ConstantFolding extends ASTNodeVisitor<Boolean> {
   // This visitor searches the AST for lists of commuting addends or factors
@@ -19,6 +21,8 @@ public class ConstantFolding extends ASTNodeVisitor<Boolean> {
     private static CommutingTerms instance;
     private static MathOp curOp;
     private static List<ExpressionNode> termsList;
+    private static boolean atTopLevel;
+    private static boolean foundCall;
   
     public static CommutingTerms getInstance() {
       if (instance == null) {
@@ -27,14 +31,14 @@ public class ConstantFolding extends ASTNodeVisitor<Boolean> {
       return instance;
     }
   
-    public static List<ExpressionNode> getTermsList(ASTNode root) {
-      assert(root instanceof MathOpNode);
-
-      curOp = ((MathOpNode)root).getOp();
+    public static List<ExpressionNode> getTermsList(MathOpNode node) {
+      curOp = node.getOp();
       assert(curOp == MathOp.ADD || curOp == MathOp.MULTIPLY);
       termsList = new ArrayList<ExpressionNode>();
+      atTopLevel = false;
+      foundCall = false;
 
-      boolean foundCall = root.accept(getInstance());
+      node.accept(getInstance());
       if (foundCall) {
         return null;
       }
@@ -48,22 +52,39 @@ public class ConstantFolding extends ASTNodeVisitor<Boolean> {
 
     @Override
     public Boolean visit(MathOpNode node) {
-      boolean foundCall = false;
+      boolean oldAtTopLevel = atTopLevel;;
 
       for (ASTNode child : node.getChildren()) {
         ExpressionNode expr = (ExpressionNode)child;
 
-        if (continuesOp(expr)) {
-          foundCall = expr.accept(this) || foundCall;
-        } else {
-          termsList.add(expr);
-          if (expr instanceof CallNode) {
-            foundCall = true;
+        if (oldAtTopLevel) {
+          if (continuesOp(expr)) {
+            atTopLevel = true;
+          } else {
+            termsList.add(expr);
+            atTopLevel = false;
           }
         }
+
+        expr.accept(this);
       }
 
-      return foundCall;
+      atTopLevel = oldAtTopLevel;
+      return true;
+    }
+
+    @Override
+    public Boolean visit(MethodCallNode node) {
+      foundCall = true;
+      defaultBehavior(node);
+      return true;
+    }
+
+    @Override
+    public Boolean visit(SystemCallNode node) {
+      foundCall = true;
+      defaultBehavior(node);
+      return true;
     }
   }
 
