@@ -26,7 +26,7 @@ public class ConstantFolding extends ASTNodeVisitor<Boolean> {
     private static MathOp curOp;
     private static List<ExpressionNode> termsList;
     private static boolean atTopLevel;
-    private static boolean foundCall;
+    private static boolean foundMethodCall;
   
     public static CommutingTerms getInstance() {
       if (instance == null) {
@@ -43,10 +43,10 @@ public class ConstantFolding extends ASTNodeVisitor<Boolean> {
 
       termsList = new ArrayList<ExpressionNode>();
       atTopLevel = false;
-      foundCall = false;
+      foundMethodCall = false;
 
       node.accept(getInstance());
-      if (foundCall) {
+      if (foundMethodCall) {
         return null;
       }
       return termsList;
@@ -82,14 +82,7 @@ public class ConstantFolding extends ASTNodeVisitor<Boolean> {
 
     @Override
     public Boolean visit(MethodCallNode node) {
-      foundCall = true;
-      defaultBehavior(node);
-      return true;
-    }
-
-    @Override
-    public Boolean visit(SystemCallNode node) {
-      foundCall = true;
+      foundMethodCall = true;
       defaultBehavior(node);
       return true;
     }
